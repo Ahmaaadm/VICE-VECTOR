@@ -1,0 +1,149 @@
+# ============================================================
+# GTA 6 NEWS SOURCES - FULL COLLECTION
+# Compiled from real articles (2023-2026)
+# ============================================================
+
+# ============================================================
+# GAMESPOT - GTA 6 ARTICLES
+# ============================================================
+
+# Revenue & Sales Predictions
+https://www.gamespot.com/articles/gta-6-could-bring-in-this-staggering-amount-of-money/1100-6538137/
+
+# Release Date News
+https://www.gamespot.com/articles/gta-6-release-date-might-be-coming-into-focus/1100-6529480/
+https://www.gamespot.com/articles/gta-6-remains-set-for-fall-2025/1100-6525654/
+https://www.gamespot.com/articles/grand-theft-auto-6-is-still-on-track-for-fall-2025-release/1100-6527618/
+https://www.gamespot.com/articles/gta-6-still-on-track-for-november-release/1100-6537831/
+
+# Comprehensive Coverage
+https://www.gamespot.com/articles/grand-theft-auto-6-everything-we-know/1100-6503729/
+
+# Release Window Predictions
+https://www.gamespot.com/articles/gta-6-might-release-as-soon-as-2024-take-two-suggests/1100-6514295/
+https://www.gamespot.com/articles/take-two-hints-at-late-2024-or-early-2025-release-for-gta-6/1100-6516687/
+
+# Industry Impact
+https://www.gamespot.com/articles/gta-6-release-date-not-being-revealed-yet-could-be-disastrous-for-some-analyst-says/1100-6530312/
+
+# Delays & Anniversaries
+https://www.gamespot.com/articles/the-gta-6-trailer-was-released-one-year-ago-today-and-fans-are-still-waiting-for-anything-more/1100-6528248/
+https://www.gamespot.com/articles/gta-6-was-revealed-four-years-ago-today/1100-6537916/
+
+# Physical Release Confirmation
+https://www.gamespot.com/articles/gta-6-will-be-available-on-as-a-physical-release-on-day-one-take-two-confirms/1100-6537898/
+
+# Game Awards Coverage
+https://www.gamespot.com/articles/the-game-awards-2026-sets-a-date-and-gta-6-looms-large/1100-6537869/
+
+# ============================================================
+# PC GAMER - GTA 6 ARTICLES
+# ============================================================
+
+# Delay Analysis
+https://www.pcgamer.com/games/grand-theft-auto/gta-2025-release-date-probably-not/
+https://www.pcgamer.com/games/grand-theft-auto/grand-theft-auto-6-delayed-until-may-2026/
+https://www.pcgamer.com/games/grand-theft-auto/grand-theft-auto-6s-delay-makes-me-think-we-wont-be-playing-this-thing-on-pc-until-2027-or-god-forbid-even-2028/
+
+# Comprehensive Guide
+https://www.pcgamesn.com/grand-theft-auto-vi/gta-6-release-date-setting-map-characters-gameplay-trailers
+
+# Industry Impact
+https://www.pcgamer.com/games/2025-saw-game-developers-scrambling-to-avoid-heavy-hitters-like-grand-theft-auto-6-and-hollow-knight-silksong/
+
+# Development News
+https://www.pcgamer.com/games/grand-theft-auto/rockstar-co-founder-dan-houser-says-he-didnt-write-any-of-gta-6-the-worlds-probably-had-enough-gta-from-me/
+https://www.pcgamer.com/games/grand-theft-auto/rockstar-just-dropped-a-ton-of-new-gta-6-details/
+
+# Early Development Reports
+https://www.pcgamer.com/grand-theft-auto-6-still-early-in-development-and-may-not-release-until-2025/
+
+# ============================================================
+# IGN - GTA 6 ARTICLES
+# ============================================================
+
+# Comprehensive Guide
+https://www.ign.com/articles/gta-6-guide-and-latest-news
+
+# PC Release Explanation
+https://www.ign.com/articles/ex-rockstar-dev-tries-to-explain-why-gta-6-is-coming-to-pc-after-ps5-and-xbox-series-x-and-s
+
+# Industry Importance
+https://www.ign.com/articles/theres-a-lot-riding-on-gta-6-and-not-just-for-rockstar-and-take-two
+
+# Release Window
+https://www.ign.com/articles/gta-6-might-be-coming-out-as-soon-as-next-year
+
+# ============================================================
+# KOTAKU - GTA 6 ARTICLES
+# ============================================================
+
+# Delay Analysis
+https://kotaku.com/gta-6-delay-may-2026-too-many-games-rockstar-trailer-2-1851778860
+
+# Year in Review
+https://kotaku.com/the-10-biggest-gaming-disappointments-worst-news-game-key-cards-gta-6-delay-2000655356
+
+# Tag Page (Multiple Articles)
+https://kotaku.com/tag/grand-theft-auto-6
+
+# ============================================================
+# GAMESRADAR - GTA 6 GUIDES
+# ============================================================
+
+# Comprehensive Guide
+https://www.gamesradar.com/gta-6-guide/
+
+# ============================================================
+# OTHER GAMING NEWS SITES
+# ============================================================
+
+# 91Mobiles - Release Date Confirmation
+https://www.91mobiles.com/hub/gta-6-fall-2025-release-take-two-ceo/
+
+# Streams Charts - November 2026 Release
+https://streamscharts.com/news/grand-theft-auto-6-release-november-2026-confirmed-take-twos-marketing-plans
+
+# ============================================================
+# WIKIPEDIA & REFERENCE
+# ============================================================
+
+# Wikipedia - Comprehensive Overview
+https://en.wikipedia.org/wiki/Grand_Theft_Auto_VI
+
+# ============================================================
+# TRAILER & OFFICIAL NEWS
+# ============================================================
+
+# Note: Add Rockstar's official GTA 6 page when content is available
+# https://www.rockstargames.com/gta-vi
+
+# ============================================================
+# RSS FEEDS (For Ongoing Coverage)
+# ============================================================
+
+# Uncomment these to get latest general gaming news (may include GTA 6):
+# https://www.gamespot.com/feeds/news/
+# https://www.pcgamer.com/rss/
+# https://kotaku.com/rss
+# https://www.ign.com/feeds/news
+
+# ============================================================
+# INSTRUCTIONS
+# ============================================================
+
+# 1. Run: python gta6_scraper_lite.py
+# 2. Check: data/articles/ for saved content
+# 3. Add more URLs as new articles are published
+# 4. Use web search to find: "GTA 6 news site:gamespot.com"
+
+# ============================================================
+# ADVANCED: FIND MORE ARTICLES
+# ============================================================
+
+# Google these to find fresh content:
+# - "GTA 6 news site:gamespot.com"
+# - "GTA 6 trailer site:ign.com"
+# - "GTA 6 release date site:pcgamer.com"
+# - "GTA 6 delay site:kotaku.com"
+# - "GTA 6 leak site:eurogamer.net"
