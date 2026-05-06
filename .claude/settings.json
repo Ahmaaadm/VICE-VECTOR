@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python generate_embeddings.py)",
+      "Bash(psql -U postgres -d gta6_rag -c \"SELECT COUNT\\(*\\) as total, COUNT\\(embedding\\) as with_embeddings FROM gta6_articles;\")",
+      "Bash(python query_rag.py)",
+      "Bash(python -c \":*)",
+      "Bash(dotnet --version)",
+      "Read(//usr/lib/**)",
+      "Bash(dotnet new:*)",
+      "Bash(dotnet --list-runtimes)",
+      "Bash(dotnet restore:*)",
+      "Bash(dotnet add:*)",
+      "Bash(dotnet build:*)"
+    ]
+  }
+}

@@ -1,208 +1,234 @@
-# GTA 6 News Scraper
-**Data Collection Pipeline for RAG + Ollama Project**
+# VICE-VECTOR
 
-A robust web scraper designed to collect, clean, and organize GTA 6 news articles for use with Retrieval Augmented Generation (RAG) and Ollama.
+**A grounded GTA 6 knowledge assistant — full RAG stack, end to end.**
 
-## 🎯 What This Does
+VICE-VECTOR scrapes news articles about Grand Theft Auto VI, embeds them as vectors, and answers user questions using only those sources. It refuses to hallucinate, prefers the most recent article when sources disagree, and stays politely on-topic — anything outside GTA 6 gets a short refusal.
 
-Follows this workflow:
 ```
-URL list → Fetch page → Extract article → Clean text → Generate metadata → Save article
+┌──────────┐   ┌─────────────┐   ┌──────────────┐   ┌─────────────┐   ┌──────────┐
+│  scraper │ → │  chunker /  │ → │ pgvector DB  │ ← │   .NET API  │ ← │  React   │
+│  (py)    │   │  embedder   │   │  (Postgres)  │   │   :5035     │   │  :5173   │
+└──────────┘   └─────────────┘   └──────────────┘   └─────────────┘   └──────────┘
+                                                          │
+                                                          ▼
+                                                    ┌─────────────┐
+                                                    │   Gemini    │
+                                                    │ (rewrite +  │
+                                                    │   answer)   │
+                                                    └─────────────┘
 ```
 
-## ✨ Key Features
+---
 
-- ✅ **Multi-method extraction**: Uses `newspaper3k` + `BeautifulSoup` fallback
-- ✅ **RSS feed support**: Auto-detects news site homepages and fetches articles from RSS feeds
-- ✅ **Text cleaning**: Removes URLs, extra whitespace, special characters
-- ✅ **Content filtering**: Only saves articles relevant to GTA 6
-- ✅ **Duplicate detection**: MD5 hash-based deduplication
-- ✅ **Rich metadata**: Saves title, authors, dates, word count, etc.
-- ✅ **Comprehensive logging**: Tracks all operations
-- ✅ **Error handling**: Gracefully handles failures
+## What it does well
 
-## 📦 Installation
+- **Recency-aware retrieval.** The vector search oversamples then reranks by `similarity + recency_boost` (180-day half-life). When the corpus contains a 2024 "release Fall 2025" article and a 2026 "delayed to November 19, 2026" article, the newer one wins.
+- **Multi-turn conversation.** Each session has a chat history; follow-ups like *"so?"* are rewritten into standalone questions before retrieval, so the vector search actually finds relevant chunks instead of garbage.
+- **Scope guard in the prompt.** Out-of-scope questions get an exact one-sentence refusal — no inventing facts, no apologies, no leaking the source list.
+- **Real /health.** The endpoint actually pings Postgres, Ollama, and Gemini; the UI shows a green/red dot per dependency.
+- **No GPU required.** Embeddings run locally on CPU via Ollama (free, fast for short queries). Generation goes to Gemini (free tier, ~50 tok/s, ~3s end-to-end).
+
+---
+
+## Stack
+
+| Layer | Tech |
+|---|---|
+| **Frontend** | React 19 + TypeScript + Vite + Tailwind v4 (dev: `:5173`) |
+| **Backend** | ASP.NET Core (.NET 10) minimal APIs (dev: `:5035`) |
+| **Vector DB** | PostgreSQL 16 + pgvector |
+| **Embeddings** | Ollama + `nomic-embed-text` (768-dim, runs on CPU) |
+| **LLM** | Google Gemini (`gemini-flash-latest`) via REST |
+| **Scraper / chunker** | Python 3.10+ (`newspaper3k`, `BeautifulSoup`, `feedparser`) |
+
+---
+
+## Quick start (local, ~5 minutes)
+
+### 0. Prerequisites
+
+- Postgres 16+ with pgvector extension
+- Ollama installed (`curl -fsSL https://ollama.com/install.sh | sh`)
+- .NET 10 SDK
+- Node 20+
+- Python 3.10+ (only if you want to re-run the scraper / embedder)
+
+### 1. Clone and install
 
 ```bash
-# Install dependencies
+git clone <repo>
+cd VICE-VECTOR
+
+# Backend deps come down automatically on first build
+# Frontend deps:
+cd frontend && npm install && cd ..
+
+# Python deps (only if running the scraper):
 pip install -r requirements.txt
-
-# Download NLTK data (required by newspaper3k)
-python -c "import nltk; nltk.download('punkt')"
 ```
 
-## 🚀 Quick Start
+### 2. Configure secrets
 
-1. **Add your sources** to `sources.txt`:
-   ```
-   # RSS feeds (will auto-extract articles)
-   https://www.rockstargames.com/newswire.xml
-   
-   # Direct article URLs
-   https://www.ign.com/articles/gta-6-everything-we-know
-   ```
-
-2. **Run the scraper**:
-   ```bash
-   python gta6_scraper.py
-   ```
-
-3. **Check the results**:
-   ```
-   data/
-   ├── articles/          # Clean text files
-   ├── metadata/          # JSON metadata
-   ├── saved_hashes.txt   # Duplicate tracking
-   └── scraper.log        # Execution log
-   ```
-
-## 📝 How to Add Sources
-
-### ✅ What Works:
-
-1. **RSS Feeds** (best option for news sites):
-   ```
-   https://www.rockstargames.com/newswire.xml
-   https://www.pcgamer.com/rss/
-   ```
-
-2. **Direct Article URLs**:
-   ```
-   https://www.ign.com/articles/gta-6-trailer-breakdown
-   https://www.gamespot.com/articles/gta-6-leak-analysis
-   ```
-
-3. **News Site Homepages** (will auto-detect RSS):
-   ```
-   https://www.ign.com
-   https://www.gamespot.com
-   ```
-
-### ❌ What Doesn't Work (Yet):
-
-- **Social media homepages**: `https://www.reddit.com/r/GTA6/`
-- **Forum homepages**: `https://gtaforums.com`
-- **Twitter/X**: Requires API access
-
-**Solution**: Add direct links to specific posts:
-```
-https://www.reddit.com/r/GTA6/comments/abc123/leak_discussion/
-https://gtaforums.com/topic/12345-gta-6-analysis/
+```bash
+cp backend/.env.example backend/.env
+cp frontend/.env.example frontend/.env
 ```
 
-## 🔧 Configuration
+Edit `backend/.env` and set:
 
-Edit the script to customize:
+```env
+GEMINI_API_KEY=...   # https://aistudio.google.com/api-keys
+ConnectionStrings__Postgres=Host=localhost;Port=5432;Database=gta6_rag;Username=postgres;Password=postgres
+```
+
+`frontend/.env` can be left blank for local dev — the Vite proxy handles it.
+
+### 3. Build the corpus (only if the DB is empty)
+
+```bash
+ollama serve &                       # in its own terminal
+ollama pull nomic-embed-text
+
+python gta6_scraper.py                # scrape ~70 URLs → data/articles/
+python prepare_for_rag.py             # chunk articles → data/rag_chunks.jsonl
+python setup_postgres.py              # create gta6_rag DB + insert chunks
+python generate_embeddings.py         # fill the vector column (~60s on CPU)
+```
+
+See [PIPELINE.md](PIPELINE.md) for a deep dive into every stage.
+
+### 4. Run
+
+```bash
+# Terminal 1 — backend (auto-loads backend/.env)
+cd backend && dotnet run
+
+# Terminal 2 — frontend
+cd frontend && npm run dev
+```
+
+Open **http://localhost:5173**. Type "when does GTA 6 release?" and you'll get a confident "November 19, 2026" answer with three source cards underneath, each scored by similarity + recency.
+
+---
+
+## API
+
+The .NET backend serves these on `:5035`. The React app uses the same shape via the Vite proxy.
+
+| Method | Path | Purpose |
+|---|---|---|
+| `GET` | `/api/health` | Postgres / Ollama / Gemini liveness |
+| `GET` | `/api/stats` | DB counts, oldest/newest article date, model names |
+| `GET` | `/api/sources?limit=200` | All scraped articles, newest first |
+| `POST` | `/api/query` | RAG query — body: `{ question, sessionId?, topK? }` |
+| `POST` | `/api/session/reset` | Clear a session's chat history |
+
+Example:
+
+```bash
+curl -s http://localhost:5035/api/query \
+  -H 'Content-Type: application/json' \
+  -d '{"question": "when does gta 6 release?", "sessionId": "demo"}' | jq
+```
+
+Response includes the answer, source chunks (with `similarity`, `recencyBoost`, `finalScore`, `publishDate`), pipeline timing breakdown, and the rewritten standalone query if the rewriter fired.
+
+---
+
+## How retrieval works
 
 ```python
-# Filter keywords (line 43)
-GTA6_KEYWORDS = ["gta 6", "gta vi", "rockstar", "vice city"]
+# Pseudocode for what RagService.SearchSimilarAsync does
+candidates = SELECT * FROM gta6_articles
+             ORDER BY embedding <=> ?
+             LIMIT topK * 4              # oversample
 
-# RSS feed mappings (line 35)
-RSS_FEEDS = {
-    "ign.com": "https://www.ign.com/articles?tags=gta-6",
-    # Add more...
-}
+for c in candidates:
+    age_days = (today - c.publish_date).days  # null → 0.05 neutral nudge
+    c.recency_boost = 0.25 * 0.5 ** (age_days / 180)
+    c.final = c.similarity + c.recency_boost
 
-# Articles per RSS feed (line 232)
-article_urls = get_articles_from_rss(feed_url, limit=10)
+return sorted(candidates, key=final_score, reverse=True)[:topK]
 ```
 
-## 📊 Output Format
+Tunable in `backend/appsettings.json` under `Retrieval`:
 
-### Article Text File (`.txt`):
-```
-TITLE: GTA 6 Trailer Breakdown
-URL: https://example.com/article
-DATE: 2024-12-01
-EXTRACTED: 2024-12-05T10:30:00
-WORD COUNT: 1250
-
-================================================================================
-
-[Clean article text here...]
-```
-
-### Metadata JSON (`.json`):
 ```json
-{
-  "title": "GTA 6 Trailer Breakdown",
-  "text": "Article content...",
-  "authors": ["John Smith"],
-  "publish_date": "2024-12-01",
-  "url": "https://example.com/article",
-  "extraction_date": "2024-12-05T10:30:00",
-  "word_count": 1250,
-  "char_count": 7800,
-  "top_image": "https://example.com/image.jpg"
+"Retrieval": {
+  "DefaultTopK": 3,
+  "Oversample": 4,
+  "RecencyWeight": 0.25,
+  "RecencyHalfLifeDays": 180,
+  "NullDateBoost": 0.05
 }
 ```
 
-## 🧹 Text Cleaning
+---
 
-The scraper automatically:
-- Removes excessive whitespace
-- Strips URLs and email addresses
-- Normalizes quotes and punctuation
-- Filters out scripts, navigation, footers
-- Validates minimum content length
+## How conversation memory works
 
-## 🔍 Content Filtering
+Sessions are kept in-process via `IMemoryCache` keyed by `sessionId`, with a sliding 60-minute TTL. The frontend generates a session id once and stores it in `localStorage`, so refreshing the page keeps the conversation.
 
-Only saves articles containing GTA 6-related keywords:
-- "gta 6" / "gta vi"
-- "grand theft auto 6"
-- "rockstar"
-- "vice city"
-- etc.
+For follow-ups, the backend asks Gemini to rewrite the user's terse message (`"so?"`, `"more details?"`) into a standalone question that the vector search can actually use. Without this step, retrieval scores collapse from ~0.86 to ~0.51 and you get unrelated chunks.
 
-## 🚨 Troubleshooting
+For multi-instance deploys: swap `IMemoryCache` for `IDistributedCache` (Redis) — same interface, no other code changes.
 
-**"No articles extracted"**
-- Check if URL is an actual article, not a homepage
-- Try adding the RSS feed instead
-- Verify the site isn't blocking scrapers
+---
 
-**"Content not relevant to GTA 6"**
-- Article doesn't mention GTA 6 keywords
-- Add more keywords in `GTA6_KEYWORDS`
+## Project layout
 
-**"Skipping social media/forum"**
-- Add direct post URLs instead of homepages
-- Consider using official APIs for Reddit/Twitter
-
-**Import errors**
-```bash
-pip install --upgrade -r requirements.txt
-python -c "import nltk; nltk.download('punkt')"
+```
+VICE-VECTOR/
+├── README.md                     ← you are here
+├── PIPELINE.md                   ← deep dive on the scraper → embed → query flow
+├── SCRAPER.md                    ← scraper-specific reference
+├── TODO.md                       ← tracked improvements
+├── .env (git-ignored)            ← (none at repo root yet)
+│
+├── backend/                      ← .NET 10 minimal API
+│   ├── .env                      ← git-ignored secrets
+│   ├── .env.example              ← committed template
+│   ├── Program.cs                ← entrypoint, DI, routes
+│   ├── appsettings.json          ← non-secret defaults
+│   ├── Models/                   ← request / response DTOs
+│   ├── Services/
+│   │   ├── RagService.cs         ← rewrite + retrieve + rerank + generate
+│   │   ├── GeminiService.cs      ← REST client for Gemini
+│   │   ├── OllamaService.cs      ← embedding only (local CPU)
+│   │   └── SessionService.cs     ← per-session chat history
+│   └── wwwroot/index.html        ← legacy single-file UI (still works)
+│
+├── frontend/                     ← Vite + React + TS
+│   ├── .env.example
+│   ├── vite.config.ts            ← /api proxy → :5035
+│   ├── src/
+│   │   ├── App.tsx
+│   │   ├── api.ts                ← typed fetch wrappers
+│   │   ├── types.ts
+│   │   ├── useRag.ts             ← single state hook
+│   │   └── components/
+│   │       ├── Header.tsx
+│   │       ├── ChatTurn.tsx
+│   │       ├── SourceCard.tsx
+│   │       ├── Composer.tsx
+│   │       ├── EmptyState.tsx
+│   │       └── AllSourcesPanel.tsx
+│   └── package.json
+│
+├── gta6_scraper.py               ← stage 1: scrape sources.txt
+├── prepare_for_rag.py            ← stage 2: chunk → rag_chunks.jsonl
+├── setup_postgres.py             ← stage 3: build DB + insert chunks
+├── generate_embeddings.py        ← stage 4: fill embedding column
+└── query_rag.py                  ← stage 5: CLI version of the RAG loop
 ```
 
-## 📈 Next Steps for RAG Pipeline
+---
 
-After collecting articles:
+## What's deliberately not yet here (see [TODO.md](TODO.md))
 
-1. **Chunk the text** (500-1000 tokens per chunk)
-2. **Generate embeddings** using Ollama
-3. **Store in vector database** (ChromaDB, FAISS, etc.)
-4. **Build RAG system** to query the knowledge base
-
-## 🔮 Future Enhancements
-
-- [ ] Reddit API integration
-- [ ] Twitter/X API integration
-- [ ] Forum-specific scrapers
-- [ ] Automatic scheduling (cron job)
-- [ ] Database storage (SQLite/PostgreSQL)
-- [ ] Image/video downloading
-- [ ] Sentiment analysis tagging
-
-## ⚠️ Legal & Ethical Considerations
-
-- Respect `robots.txt`
-- Don't overload servers (add delays if scraping many URLs)
-- Only use data for personal/research purposes
-- Check each site's Terms of Service
-
-## 📄 License
-
-Use responsibly for educational/research purposes.
+- Streaming answers (SSE) — currently the API waits for Gemini's full response (~3s)
+- Hybrid search (vector + BM25 full-text)
+- Cross-encoder rerank with `bge-reranker`
+- Docker Compose for the whole stack
+- Auth / rate limiting per-IP
+- Re-scrape stale articles automatically (cron / GitHub Action)

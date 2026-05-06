@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>VICE-VECTOR · GTA 6 RAG</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<style>
+  body { font-family: 'Inter', system-ui, -apple-system, sans-serif; }
+  .ctx-pill { font-variant-numeric: tabular-nums; }
+  .markdown :where(p,ul,ol) { margin-bottom: 0.5rem; }
+  .markdown ul { list-style: disc; padding-left: 1.25rem; }
+  .markdown ol { list-style: decimal; padding-left: 1.25rem; }
+  .markdown strong { color: #fff; }
+  .markdown a { color: #f472b6; text-decoration: underline; text-underline-offset: 2px; }
+  .markdown code { background: rgba(244,114,182,0.1); color: #f9a8d4; padding: 0 0.25rem; border-radius: 0.25rem; font-size: 0.9em; }
+  .scroll-shadow::after {
+    content: ""; position: sticky; bottom: 0; display: block; height: 24px;
+    background: linear-gradient(to top, rgba(15,23,42,1), rgba(15,23,42,0));
+    pointer-events: none;
+  }
+  /* dot loader */
+  @keyframes pulse-dot { 0%,80%,100% { opacity: 0.2; } 40% { opacity: 1; } }
+  .dot { animation: pulse-dot 1.2s infinite ease-in-out; }
+  .dot:nth-child(2) { animation-delay: 0.15s; }
+  .dot:nth-child(3) { animation-delay: 0.3s; }
+</style>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col"
+      x-data="rag()" x-init="init()">
+
+  <!-- Header -->
+  <header class="border-b border-slate-800 bg-slate-950/60 backdrop-blur sticky top-0 z-20">
+    <div class="max-w-5xl mx-auto px-6 py-3 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-pink-500 to-violet-600 flex items-center justify-center font-bold text-sm">V</div>
+        <div>
+          <div class="font-semibold leading-tight">VICE-VECTOR</div>
+          <div class="text-xs text-slate-400 leading-tight">GTA 6 RAG · grounded answers from scraped articles</div>
+        </div>
+      </div>
+      <div class="flex items-center gap-4 text-xs text-slate-400">
+        <button @click="loadStats()" class="hover:text-slate-200" title="Refresh stats">↻</button>
+        <span class="ctx-pill" x-text="stats ? `${stats.distinctArticles} articles · ${stats.chunksWithEmbeddings}/${stats.totalChunks} chunks embedded` : 'loading...'"></span>
+        <span class="ctx-pill" x-show="health">
+          <span x-show="health?.postgres?.ok" class="text-emerald-400">●</span>
+          <span x-show="!health?.postgres?.ok" class="text-rose-400">●</span> PG ·
+          <span x-show="health?.ollama?.ok" class="text-emerald-400">●</span>
+          <span x-show="!health?.ollama?.ok" class="text-rose-400">●</span> Ollama ·
+          <span x-show="health?.gemini?.ok" class="text-emerald-400">●</span>
+          <span x-show="!health?.gemini?.ok" class="text-rose-400">●</span> Gemini
+        </span>
+        <button @click="showSourcesPanel = !showSourcesPanel"
+                class="px-2 py-1 rounded border border-slate-700 hover:border-slate-500"
+                x-text="showSourcesPanel ? 'hide sources' : 'all sources'"></button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main: chat + side panel -->
+  <main class="flex-1 max-w-5xl w-full mx-auto px-6 py-6 flex gap-6">
+
+    <!-- Conversation column -->
+    <div class="flex-1 flex flex-col gap-5 min-w-0">
+
+      <!-- Empty state -->
+      <template x-if="messages.length === 0 && !isLoading">
+        <div class="flex flex-col items-center justify-center text-center py-20 text-slate-400">
+          <div class="text-3xl font-bold text-slate-300 mb-2">Ask anything about GTA 6</div>
+          <div class="max-w-md mb-8">Powered by your scraped corpus + pgvector + Gemini. Newer articles get a recency boost so release dates and current status stay fresh.</div>
+          <div class="flex flex-wrap gap-2 justify-center">
+            <template x-for="example in examples">
+              <button @click="ask(example)"
+                      class="px-3 py-1.5 rounded-full border border-slate-700 text-sm hover:border-pink-500 hover:text-pink-300 transition"
+                      x-text="example"></button>
+            </template>
+          </div>
+        </div>
+      </template>
+
+      <!-- Messages -->
+      <template x-for="(msg, idx) in messages" :key="idx">
+        <div>
+
+          <!-- User message -->
+          <template x-if="msg.role === 'user'">
+            <div class="flex justify-end">
+              <div class="max-w-[85%] bg-gradient-to-r from-pink-600 to-violet-600 text-white px-4 py-2.5 rounded-2xl rounded-tr-md text-sm">
+                <span x-text="msg.content"></span>
+              </div>
+            </div>
+          </template>
+
+          <!-- Assistant message -->
+          <template x-if="msg.role === 'assistant'">
+            <div class="space-y-3">
+              <div class="flex gap-3">
+                <div class="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center text-xs flex-shrink-0">🤖</div>
+                <div class="flex-1 bg-slate-800/60 border border-slate-700 rounded-2xl rounded-tl-md px-4 py-3 text-sm leading-relaxed markdown"
+                     x-html="renderMarkdown(msg.content)"></div>
+              </div>
+
+              <!-- Pipeline timing chips -->
+              <div class="flex flex-wrap gap-2 ml-11 text-[11px] text-slate-400 ctx-pill">
+                <template x-if="msg.stats?.rewriteTimeMs > 0">
+                  <span class="px-2 py-0.5 rounded bg-slate-800 border border-slate-700">rewrite <span x-text="(msg.stats.rewriteTimeMs/1000).toFixed(2)"></span>s</span>
+                </template>
+                <span class="px-2 py-0.5 rounded bg-slate-800 border border-slate-700">embed <span x-text="(msg.stats.embeddingTimeMs/1000).toFixed(2)"></span>s</span>
+                <span class="px-2 py-0.5 rounded bg-slate-800 border border-slate-700">search <span x-text="msg.stats.searchTimeMs.toFixed(0)"></span>ms</span>
+                <span class="px-2 py-0.5 rounded bg-slate-800 border border-slate-700">gen <span x-text="(msg.stats.generationTimeMs/1000).toFixed(2)"></span>s · <span x-text="msg.stats.tokensGenerated"></span> tok @ <span x-text="msg.stats.tokensPerSecond.toFixed(0)"></span> tok/s</span>
+                <span class="px-2 py-0.5 rounded bg-emerald-900/40 border border-emerald-800 text-emerald-300">total <span x-text="(msg.stats.totalTimeMs/1000).toFixed(2)"></span>s</span>
+                <template x-if="msg.rewrittenQuery">
+                  <span class="px-2 py-0.5 rounded bg-violet-900/40 border border-violet-800 text-violet-200" :title="msg.rewrittenQuery">↻ rewritten</span>
+                </template>
+              </div>
+
+              <!-- Source cards -->
+              <template x-if="msg.sources?.length">
+                <div class="ml-11 grid grid-cols-1 md:grid-cols-3 gap-2">
+                  <template x-for="(src, i) in msg.sources" :key="i">
+                    <a :href="src.url" target="_blank" rel="noopener"
+                       class="block p-3 bg-slate-800/40 border border-slate-700 rounded-lg hover:border-pink-500 transition group">
+                      <div class="flex items-start justify-between gap-2 mb-1">
+                        <div class="text-[10px] text-slate-500 uppercase tracking-wide">Source <span x-text="i+1"></span></div>
+                        <div class="text-[10px] ctx-pill text-pink-400 font-mono"
+                             :title="`similarity ${src.similarity.toFixed(3)} + recency ${src.recencyBoost.toFixed(3)}`">
+                          <span x-text="src.finalScore.toFixed(2)"></span>
+                        </div>
+                      </div>
+                      <div class="text-xs font-medium text-slate-200 line-clamp-2 group-hover:text-pink-300 mb-1.5"
+                           x-text="src.title"></div>
+                      <div class="flex items-center justify-between text-[10px] text-slate-500 ctx-pill">
+                        <span x-text="src.publishDate ? src.publishDate.substring(0,10) : 'unknown date'"></span>
+                        <span x-text="`chunk #${src.chunkIndex}`"></span>
+                      </div>
+                    </a>
+                  </template>
+                </div>
+              </template>
+            </div>
+          </template>
+        </div>
+      </template>
+
+      <!-- Loader -->
+      <template x-if="isLoading">
+        <div class="flex gap-3">
+          <div class="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center text-xs flex-shrink-0">🤖</div>
+          <div class="bg-slate-800/60 border border-slate-700 rounded-2xl rounded-tl-md px-4 py-3 text-sm flex items-center gap-3">
+            <div class="flex gap-1">
+              <span class="dot w-1.5 h-1.5 rounded-full bg-pink-400"></span>
+              <span class="dot w-1.5 h-1.5 rounded-full bg-pink-400"></span>
+              <span class="dot w-1.5 h-1.5 rounded-full bg-pink-400"></span>
+            </div>
+            <span class="text-slate-400" x-text="loadingStage"></span>
+          </div>
+        </div>
+      </template>
+
+      <!-- Error -->
+      <template x-if="error">
+        <div class="bg-rose-950/40 border border-rose-800 rounded-lg px-4 py-3 text-sm text-rose-200">
+          <div class="font-semibold mb-1">Something went wrong</div>
+          <div x-text="error" class="text-rose-300/90 text-xs"></div>
+        </div>
+      </template>
+
+      <!-- Composer -->
+      <form @submit.prevent="ask(input)" class="sticky bottom-0 bg-slate-900 pt-3 pb-1">
+        <div class="flex gap-2">
+          <input
+            x-model="input"
+            type="text"
+            placeholder="Ask about GTA 6..."
+            :disabled="isLoading"
+            class="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-sm placeholder-slate-500 focus:outline-none focus:border-pink-500 disabled:opacity-50"
+            autofocus />
+          <button type="submit"
+                  :disabled="isLoading || !input.trim()"
+                  class="bg-gradient-to-r from-pink-600 to-violet-600 hover:from-pink-500 hover:to-violet-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium px-5 rounded-xl transition">
+            <span x-show="!isLoading">Send</span>
+            <span x-show="isLoading">…</span>
+          </button>
+          <button type="button" @click="resetSession()"
+                  :disabled="isLoading || messages.length === 0"
+                  class="bg-slate-800 hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed border border-slate-700 px-4 rounded-xl text-sm text-slate-300"
+                  title="Clear conversation history">
+            ↺ Reset
+          </button>
+        </div>
+        <div class="mt-1.5 text-[10px] text-slate-500 ctx-pill flex items-center justify-between">
+          <span>session: <span class="font-mono" x-text="sessionId.substring(0,8)"></span> · <span x-text="messages.filter(m => m.role==='user').length"></span> turn(s) sent</span>
+          <span>↵ to send</span>
+        </div>
+      </form>
+    </div>
+
+    <!-- Side panel: all sources -->
+    <aside x-show="showSourcesPanel" x-transition
+           class="w-80 flex-shrink-0 bg-slate-950/40 border border-slate-800 rounded-xl p-4 max-h-[calc(100vh-7rem)] overflow-y-auto sticky top-20 self-start">
+      <div class="flex items-center justify-between mb-3">
+        <div class="font-semibold text-sm">All scraped sources</div>
+        <span class="text-xs text-slate-500" x-text="`${allSources.length}`"></span>
+      </div>
+      <div class="space-y-2">
+        <template x-for="article in allSources" :key="article.url">
+          <a :href="article.url" target="_blank" rel="noopener"
+             class="block p-2 bg-slate-800/50 border border-slate-800 rounded hover:border-pink-500 transition">
+            <div class="text-xs font-medium text-slate-200 line-clamp-2 mb-1" x-text="article.title || '(untitled)'"></div>
+            <div class="flex items-center justify-between text-[10px] text-slate-500 ctx-pill">
+              <span x-text="article.publishDate ? article.publishDate.substring(0,10) : 'unknown'"></span>
+              <span x-text="`${article.totalChunks} chunks`"></span>
+            </div>
+          </a>
+        </template>
+      </div>
+    </aside>
+  </main>
+
+  <footer class="text-center text-[11px] text-slate-600 py-3 border-t border-slate-800">
+    embed: nomic-embed-text (Ollama) · chat: <span class="text-slate-500" x-text="stats?.chatModel ?? 'gemini-flash-latest'"></span> · pgvector
+  </footer>
+
+<script>
+function rag() {
+  return {
+    messages: [],
+    input: '',
+    isLoading: false,
+    loadingStage: 'thinking…',
+    error: null,
+    sessionId: '',
+    stats: null,
+    health: null,
+    showSourcesPanel: false,
+    allSources: [],
+    examples: [
+      'When is GTA 6 releasing?',
+      'Who is Lucia?',
+      'What platforms will it be on?',
+      'What do we know about the story?',
+    ],
+
+    init() {
+      this.sessionId = localStorage.getItem('vv_session') || this.newSessionId();
+      localStorage.setItem('vv_session', this.sessionId);
+      this.loadStats();
+      this.loadHealth();
+      this.loadAllSources();
+    },
+
+    newSessionId() {
+      return 's_' + Math.random().toString(36).slice(2) + Date.now().toString(36);
+    },
+
+    renderMarkdown(text) {
+      try { return marked.parse(text); } catch { return text; }
+    },
+
+    async loadStats() {
+      try {
+        const r = await fetch('/api/stats');
+        if (r.ok) this.stats = await r.json();
+      } catch {}
+    },
+
+    async loadHealth() {
+      try {
+        const r = await fetch('/api/health');
+        if (r.ok) this.health = await r.json();
+      } catch {}
+    },
+
+    async loadAllSources() {
+      try {
+        const r = await fetch('/api/sources');
+        if (r.ok) this.allSources = await r.json();
+      } catch {}
+    },
+
+    async ask(question) {
+      question = (question || '').trim();
+      if (!question || this.isLoading) return;
+
+      this.error = null;
+      this.input = '';
+      this.messages.push({ role: 'user', content: question });
+      this.isLoading = true;
+      this.loadingStage = this.messages.length > 1 ? 'rewriting follow-up + searching…' : 'embedding + searching…';
+      setTimeout(() => { if (this.isLoading) this.loadingStage = 'asking Gemini…'; }, 1500);
+
+      try {
+        const r = await fetch('/api/query', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ question, sessionId: this.sessionId }),
+        });
+
+        if (!r.ok) {
+          const errBody = await r.json().catch(() => ({}));
+          throw new Error(errBody.detail || errBody.error || `HTTP ${r.status}`);
+        }
+
+        const data = await r.json();
+        this.messages.push({
+          role: 'assistant',
+          content: data.answer,
+          sources: data.sources,
+          stats: data.stats,
+          rewrittenQuery: data.rewrittenQuery,
+        });
+        this.$nextTick(() => window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' }));
+      } catch (e) {
+        this.error = e.message || String(e);
+      } finally {
+        this.isLoading = false;
+      }
+    },
+
+    async resetSession() {
+      if (!this.sessionId || this.messages.length === 0) return;
+      try {
+        await fetch('/api/session/reset', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sessionId: this.sessionId }),
+        });
+      } catch {}
+      this.messages = [];
+      this.error = null;
+      this.sessionId = this.newSessionId();
+      localStorage.setItem('vv_session', this.sessionId);
+    },
+  };
+}
+</script>
+</body>
+</html>

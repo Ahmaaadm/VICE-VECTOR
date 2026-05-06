@@ -1,0 +1,40 @@
+# ---------- Secrets ----------
+.env
+.env.local
+.env.*.local
+*.local
+# but DO commit example files so the repo is self-documenting
+!.env.example
+
+# ---------- .NET ----------
+backend/bin/
+backend/obj/
+*.user
+*.userosscache
+*.suo
+
+# ---------- Python ----------
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+.python-version
+
+# ---------- Node / Vite ----------
+node_modules/
+frontend/dist/
+frontend/dist-ssr/
+.vite/
+
+# ---------- Editors / OS ----------
+.idea/
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+
+# ---------- Runtime artifacts ----------
+data/scraper.log
+data/saved_hashes.txt
+*.log
